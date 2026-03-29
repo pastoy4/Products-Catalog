@@ -8,10 +8,21 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
-// Middleware
 // CORS configuration for production
+const allowedOrigins = [
+    'http://localhost:4200',
+    ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(u => u.trim()) : [])
+];
 const corsOptions = {
-    origin: process.env.FRONTEND_URL || 'http://localhost:4200',
+    origin: function (origin, callback) {
+        // Allow requests with no origin (mobile apps, curl, etc.)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.some(allowed => origin === allowed || origin.endsWith('.pages.dev'))) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
     optionsSuccessStatus: 200
 };

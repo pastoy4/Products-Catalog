@@ -53,6 +53,13 @@ export const routes: Routes = [
                         (m) => m.ProductFormComponent
                     ),
             },
+            {
+                path: 'slides',
+                loadComponent: () =>
+                    import('./features/admin/slide-manager/slide-manager.component').then(
+                        (m) => m.SlideManagerComponent
+                    ),
+            },
         ],
     },
     {

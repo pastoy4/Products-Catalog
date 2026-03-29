@@ -66,12 +66,24 @@ import { SpinnerComponent } from '../../../shared/components/spinner/spinner.com
 
                 <div class="form-group">
                   <label for="stock">Stock Quantity *</label>
-                  <input id="stock" type="number" [(ngModel)]="form.stock" name="stock" required min="0" placeholder="0" />
+                  <div class="stock-input-group">
+                    <button type="button" class="stock-btn minus" (click)="decrementStock()">−</button>
+                    <input id="stock" type="number" [(ngModel)]="form.stock" name="stock" required min="0" placeholder="0" />
+                    <button type="button" class="stock-btn plus" (click)="incrementStock()">+</button>
+                  </div>
                 </div>
 
                 <div class="form-group full">
                   <label for="category">Category</label>
-                  <input id="category" type="text" [(ngModel)]="form.category" name="category" placeholder="e.g. Electronics, Clothing" />
+                  <select id="category" [(ngModel)]="selectedCategory" name="category" (ngModelChange)="onCategoryChange($event)" class="form-select">
+                    @for (cat of categories(); track cat) {
+                      <option [value]="cat">{{ cat }}</option>
+                    }
+                    <option value="__other__">+ Other (New Category)</option>
+                  </select>
+                  @if (selectedCategory === '__other__') {
+                    <input type="text" [(ngModel)]="form.category" name="newCategory" placeholder="Enter new category..." class="new-cat-input" />
+                  }
                 </div>
 
                 <div class="form-group full">
@@ -247,7 +259,7 @@ import { SpinnerComponent } from '../../../shared/components/spinner/spinner.com
       margin-bottom: 8px;
     }
 
-    .form-group input, .form-group textarea {
+    .form-group input, .form-group textarea, .form-select {
       width: 100%;
       padding: 12px 16px;
       background: rgba(15, 15, 25, 0.6);
@@ -261,7 +273,7 @@ import { SpinnerComponent } from '../../../shared/components/spinner/spinner.com
       box-sizing: border-box;
     }
 
-    .form-group input:focus, .form-group textarea:focus {
+    .form-group input:focus, .form-group textarea:focus, .form-select:focus {
       border-color: rgba(167, 139, 250, 0.5);
     }
 
@@ -272,6 +284,73 @@ import { SpinnerComponent } from '../../../shared/components/spinner/spinner.com
     .form-group textarea {
       resize: vertical;
       min-height: 100px;
+    }
+
+    .form-select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      padding-right: 40px;
+    }
+
+    .form-select option {
+      background: #1e1e32;
+    }
+
+    .new-cat-input {
+      margin-top: 10px;
+    }
+
+    /* Stock input group */
+    .stock-input-group {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    .stock-input-group input {
+      border-radius: 0;
+      text-align: center;
+      -moz-appearance: textfield;
+      width: 100%;
+    }
+
+    .stock-input-group input::-webkit-outer-spin-button,
+    .stock-input-group input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .stock-btn {
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(15, 15, 25, 0.8);
+      color: #fff;
+      font-size: 1.2rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      padding: 0;
+    }
+
+    .stock-btn.minus {
+      border-radius: 10px 0 0 10px;
+    }
+
+    .stock-btn.plus {
+      border-radius: 0 10px 10px 0;
+    }
+
+    .stock-btn:hover {
+      background: rgba(167, 139, 250, 0.2);
+      border-color: rgba(167, 139, 250, 0.3);
     }
 
     /* Actions */
@@ -338,6 +417,7 @@ export class ProductFormComponent implements OnInit {
     uploading = signal(false);
     error = signal('');
     imagePreview = signal<string | null>(null);
+    categories = signal<string[]>([]);
 
     form = {
         name: '',
@@ -349,6 +429,7 @@ export class ProductFormComponent implements OnInit {
         imagePublicId: '',
     };
 
+    selectedCategory = 'General';
     private productId = '';
     private selectedFile: File | null = null;
 
@@ -356,9 +437,11 @@ export class ProductFormComponent implements OnInit {
         private api: ApiService,
         private route: ActivatedRoute,
         private router: Router
-    ) { }
+    ) {}
 
     ngOnInit() {
+        this.loadCategories();
+
         const id = this.route.snapshot.paramMap.get('id');
         if (id) {
             this.isEdit.set(true);
@@ -376,6 +459,7 @@ export class ProductFormComponent implements OnInit {
                         imageUrl: p.imageUrl,
                         imagePublicId: p.imagePublicId,
                     };
+                    this.selectedCategory = this.categories().includes(p.category) ? p.category : '__other__';
                     if (p.imageUrl) this.imagePreview.set(p.imageUrl);
                     this.loading.set(false);
                 },
@@ -384,6 +468,39 @@ export class ProductFormComponent implements OnInit {
                     this.loading.set(false);
                 },
             });
+        }
+    }
+
+    loadCategories() {
+        this.api.getCategories().subscribe({
+            next: (res) => {
+                this.categories.set(res.data);
+                // If editing, check if category exists in list
+                if (this.isEdit() && !res.data.includes(this.form.category)) {
+                    this.selectedCategory = '__other__';
+                } else if (!this.isEdit() && res.data.length > 0) {
+                    this.selectedCategory = this.form.category;
+                }
+            },
+        });
+    }
+
+    onCategoryChange(value: string) {
+        this.selectedCategory = value;
+        if (value !== '__other__') {
+            this.form.category = value;
+        } else {
+            this.form.category = '';
+        }
+    }
+
+    incrementStock() {
+        this.form.stock = (this.form.stock || 0) + 1;
+    }
+
+    decrementStock() {
+        if (this.form.stock > 0) {
+            this.form.stock--;
         }
     }
 

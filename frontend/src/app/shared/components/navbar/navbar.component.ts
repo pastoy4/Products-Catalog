@@ -30,6 +30,11 @@ import { AuthService } from '../../../core/services/auth.service';
               </a>
             </li>
             <li>
+              <a routerLink="/admin/slides" routerLinkActive="active" (click)="menuOpen = false">
+                <span class="nav-icon">🖼️</span> Slides
+              </a>
+            </li>
+            <li>
               <button class="btn-logout" (click)="auth.logout(); menuOpen = false">
                 <span class="nav-icon">🚪</span> Logout
               </button>

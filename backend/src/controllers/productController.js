@@ -108,3 +108,26 @@ exports.getCategories = async (req, res, next) => {
         next(error);
     }
 };
+
+// @desc    Bulk update stock quantities
+// @route   PATCH /api/products/bulk-stock
+exports.bulkUpdateStock = async (req, res, next) => {
+    try {
+        const { updates } = req.body;
+        if (!Array.isArray(updates) || updates.length === 0) {
+            return res.status(400).json({ success: false, message: 'Updates array is required' });
+        }
+
+        const bulkOps = updates.map(({ id, stock }) => ({
+            updateOne: {
+                filter: { _id: id },
+                update: { $set: { stock: Math.max(0, stock) } },
+            },
+        }));
+
+        await Product.bulkWrite(bulkOps);
+        res.json({ success: true, message: `Updated ${updates.length} products` });
+    } catch (error) {
+        next(error);
+    }
+};

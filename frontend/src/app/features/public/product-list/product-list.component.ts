@@ -1,6 +1,6 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ApiService, Product } from '../../../core/services/api.service';
+import { ApiService, Product, Slide } from '../../../core/services/api.service';
 import { ProductCardComponent } from '../../../shared/components/product-card/product-card.component';
 import { SpinnerComponent } from '../../../shared/components/spinner/spinner.component';
 
@@ -9,24 +9,48 @@ import { SpinnerComponent } from '../../../shared/components/spinner/spinner.com
     imports: [FormsModule, ProductCardComponent, SpinnerComponent],
     template: `
     <div class="catalog-page">
-      <!-- Hero Section -->
-      <section class="hero">
-        <div class="hero-bg"></div>
-        <div class="hero-content">
-          <h1 class="hero-title">Discover Our <span class="gradient-text">Products</span></h1>
-          <p class="hero-subtitle">Browse our curated collection of premium products</p>
+      <!-- Hero Carousel -->
+      @if (slideData().length > 0) {
+      <section class="carousel-section"
+        (mouseenter)="pauseCarousel()"
+        (mouseleave)="resumeCarousel()">
+        <div class="carousel-track" [style.transform]="'translateX(-' + currentSlide() * 100 + '%)'">
+          @for (slide of slideData(); track slide._id) {
+            <div class="carousel-slide" [style.background]="slide.imageUrl ? 'url(' + slide.imageUrl + ') center/cover no-repeat' : slide.bgGradient">
+              <div class="slide-overlay"></div>
+              <div class="slide-content">
+                @if (slide.badge) {
+                  <span class="slide-badge">{{ slide.badge }}</span>
+                }
+                <h1 class="slide-title">{{ slide.title }}</h1>
+                @if (slide.subtitle) {
+                  <p class="slide-subtitle">{{ slide.subtitle }}</p>
+                }
+              </div>
+            </div>
+          }
+        </div>
+        <div class="carousel-dots">
+          @for (slide of slideData(); track slide._id; let i = $index) {
+            <button class="dot" [class.active]="currentSlide() === i" (click)="goToSlide(i)"></button>
+          }
+        </div>
+        <button class="carousel-arrow prev" (click)="prevSlide()">‹</button>
+        <button class="carousel-arrow next" (click)="nextSlide()">›</button>
+      </section>
+      }
 
-          <!-- Search Bar -->
-          <div class="search-container">
-            <span class="search-icon">🔍</span>
-            <input
-              type="text"
-              class="search-input"
-              placeholder="Search products..."
-              [ngModel]="searchTerm()"
-              (ngModelChange)="onSearch($event)"
-            />
-          </div>
+      <!-- Search Bar -->
+      <section class="search-section">
+        <div class="search-container">
+          <span class="search-icon">🔍</span>
+          <input
+            type="text"
+            class="search-input"
+            placeholder="Search products..."
+            [ngModel]="searchTerm()"
+            (ngModelChange)="onSearch($event)"
+          />
         </div>
       </section>
 
@@ -86,49 +110,136 @@ import { SpinnerComponent } from '../../../shared/components/spinner/spinner.com
       min-height: calc(100vh - 70px);
     }
 
-    /* Hero */
-    .hero {
+    /* Carousel */
+    .carousel-section {
       position: relative;
-      padding: 80px 24px 60px;
-      text-align: center;
       overflow: hidden;
+      width: 100%;
+      max-height: 500px;
+      aspect-ratio: 16 / 9;
     }
 
-    .hero-bg {
+    .carousel-track {
+      display: flex;
+      height: 100%;
+      transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .carousel-slide {
+      min-width: 100%;
+      height: 100%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .slide-overlay {
       position: absolute;
       inset: 0;
-      background: radial-gradient(ellipse at 50% 0%, rgba(167, 139, 250, 0.15), transparent 70%),
-                  radial-gradient(ellipse at 80% 50%, rgba(96, 165, 250, 0.1), transparent 60%);
-      pointer-events: none;
+      background: rgba(10, 10, 20, 0.45);
     }
 
-    .hero-content {
+    .slide-content {
       position: relative;
-      max-width: 640px;
-      margin: 0 auto;
+      text-align: center;
+      z-index: 1;
+      max-width: 600px;
+      padding: 0 24px;
     }
 
-    .hero-title {
-      font-size: 2.8rem;
+    .slide-badge {
+      display: inline-block;
+      padding: 6px 16px;
+      background: rgba(167, 139, 250, 0.2);
+      color: #a78bfa;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .slide-title {
+      font-size: 2.6rem;
       font-weight: 800;
       color: #fff;
       margin: 0 0 12px;
       letter-spacing: -1px;
+      line-height: 1.15;
     }
 
-    .gradient-text {
-      background: linear-gradient(135deg, #a78bfa, #60a5fa);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .hero-subtitle {
+    .slide-subtitle {
       font-size: 1.1rem;
-      color: rgba(255, 255, 255, 0.5);
-      margin: 0 0 32px;
+      color: rgba(255, 255, 255, 0.65);
+      margin: 0;
+      line-height: 1.5;
     }
+
+    .carousel-dots {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      z-index: 2;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.5);
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.3s;
+      padding: 0;
+    }
+
+    .dot.active {
+      background: #a78bfa;
+      border-color: #a78bfa;
+      transform: scale(1.2);
+    }
+
+    .carousel-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(15, 15, 25, 0.6);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      font-size: 1.5rem;
+      cursor: pointer;
+      z-index: 2;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .carousel-arrow:hover {
+      background: rgba(167, 139, 250, 0.3);
+      border-color: #a78bfa;
+    }
+
+    .carousel-arrow.prev { left: 16px; }
+    .carousel-arrow.next { right: 16px; }
 
     /* Search */
+    .search-section {
+      padding: 32px 24px 0;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
     .search-container {
       display: flex;
       align-items: center;
@@ -164,6 +275,7 @@ import { SpinnerComponent } from '../../../shared/components/spinner/spinner.com
     .controls {
       padding: 0 24px;
       margin-bottom: 32px;
+      margin-top: 24px;
     }
 
     .controls-inner {
@@ -247,29 +359,112 @@ import { SpinnerComponent } from '../../../shared/components/spinner/spinner.com
     .empty-state p { margin: 0; }
 
     @media (max-width: 640px) {
-      .hero-title { font-size: 2rem; }
-      .hero { padding: 50px 16px 40px; }
+      .carousel-section { max-height: 280px; }
+      .slide-title { font-size: 1.8rem; }
+      .carousel-arrow { display: none; }
       .products-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
     }
   `],
 })
-export class ProductListComponent implements OnInit {
+export class ProductListComponent implements OnInit, OnDestroy {
     products = signal<Product[]>([]);
     categories = signal<string[]>([]);
     loading = signal(true);
     searchTerm = signal('');
     selectedCategory = signal('All');
     sortBy = signal('');
+    currentSlide = signal(0);
+    slideData = signal<Slide[]>([]);
+
+    private defaultSlides: Slide[] = [
+        {
+            _id: 'default-1', badge: '\u2728 New Arrivals',
+            title: 'Discover Our Premium Products',
+            subtitle: 'Browse our curated collection of the finest items handpicked for you.',
+            bgGradient: 'linear-gradient(135deg, #1a1a3e 0%, #2d1b69 50%, #1a1a3e 100%)',
+            imageUrl: '', imagePublicId: '', order: 0, active: true, createdAt: '', updatedAt: '',
+        },
+        {
+            _id: 'default-2', badge: '\uD83D\uDD25 Hot Deals',
+            title: 'Exclusive Discounts Await',
+            subtitle: 'Save big on top-rated products. Limited time offers you can\'t miss.',
+            bgGradient: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
+            imageUrl: '', imagePublicId: '', order: 1, active: true, createdAt: '', updatedAt: '',
+        },
+        {
+            _id: 'default-3', badge: '\uD83D\uDE80 Trending',
+            title: 'Top Picks Just For You',
+            subtitle: 'Explore what\'s trending right now across all categories.',
+            bgGradient: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+            imageUrl: '', imagePublicId: '', order: 2, active: true, createdAt: '', updatedAt: '',
+        },
+    ];
 
     private searchTimeout: any;
+    private carouselInterval: any;
 
-    constructor(private api: ApiService) { }
+    constructor(private api: ApiService) {}
 
     ngOnInit() {
         this.loadProducts();
         this.loadCategories();
+        this.loadSlides();
     }
 
+    ngOnDestroy() {
+        this.stopCarousel();
+        clearTimeout(this.searchTimeout);
+    }
+
+    // Slides
+    loadSlides() {
+        this.api.getSlides().subscribe({
+            next: (res) => {
+                this.slideData.set(res.data.length > 0 ? res.data : this.defaultSlides);
+                this.startCarousel();
+            },
+            error: () => {
+                this.slideData.set(this.defaultSlides);
+                this.startCarousel();
+            },
+        });
+    }
+
+    // Carousel
+    startCarousel() {
+        this.stopCarousel();
+        if (this.slideData().length > 1) {
+            this.carouselInterval = setInterval(() => this.nextSlide(), 5000);
+        }
+    }
+
+    stopCarousel() {
+        clearInterval(this.carouselInterval);
+    }
+
+    pauseCarousel() {
+        this.stopCarousel();
+    }
+
+    resumeCarousel() {
+        this.startCarousel();
+    }
+
+    nextSlide() {
+        this.currentSlide.set((this.currentSlide() + 1) % this.slideData().length);
+    }
+
+    prevSlide() {
+        this.currentSlide.set(
+            (this.currentSlide() - 1 + this.slideData().length) % this.slideData().length
+        );
+    }
+
+    goToSlide(index: number) {
+        this.currentSlide.set(index);
+    }
+
+    // Products
     loadProducts() {
         this.loading.set(true);
         const params: any = {};
@@ -308,3 +503,4 @@ export class ProductListComponent implements OnInit {
         this.loadProducts();
     }
 }
+

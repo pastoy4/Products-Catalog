@@ -35,6 +35,20 @@ export interface UploadResponse {
     };
 }
 
+export interface Slide {
+    _id: string;
+    title: string;
+    subtitle: string;
+    badge: string;
+    imageUrl: string;
+    imagePublicId: string;
+    bgGradient: string;
+    order: number;
+    active: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
     private apiUrl = environment.apiUrl;
@@ -79,6 +93,32 @@ export class ApiService {
         );
     }
 
+    // Bulk stock update
+    bulkUpdateStock(updates: { id: string; stock: number }[]): Observable<any> {
+        return this.http.patch(`${this.apiUrl}/products/bulk-stock`, { updates });
+    }
+
+    // Slides
+    getSlides(): Observable<{ success: boolean; data: Slide[] }> {
+        return this.http.get<{ success: boolean; data: Slide[] }>(`${this.apiUrl}/slides`);
+    }
+
+    getAllSlides(): Observable<{ success: boolean; data: Slide[] }> {
+        return this.http.get<{ success: boolean; data: Slide[] }>(`${this.apiUrl}/slides/all`);
+    }
+
+    createSlide(slide: Partial<Slide>): Observable<{ success: boolean; data: Slide }> {
+        return this.http.post<{ success: boolean; data: Slide }>(`${this.apiUrl}/slides`, slide);
+    }
+
+    updateSlide(id: string, slide: Partial<Slide>): Observable<{ success: boolean; data: Slide }> {
+        return this.http.put<{ success: boolean; data: Slide }>(`${this.apiUrl}/slides/${id}`, slide);
+    }
+
+    deleteSlide(id: string): Observable<any> {
+        return this.http.delete(`${this.apiUrl}/slides/${id}`);
+    }
+
     // Upload
     uploadImage(file: File): Observable<UploadResponse> {
         const formData = new FormData();
@@ -86,3 +126,4 @@ export class ApiService {
         return this.http.post<UploadResponse>(`${this.apiUrl}/upload`, formData);
     }
 }
+
